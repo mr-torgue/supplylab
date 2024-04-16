@@ -1,6 +1,13 @@
 /*
-RFID reader interface v1.0:
-Supports reading and writing over serial
+  Reading multiple RFID tags, simultaneously!
+  By: Nathan Seidle @ SparkFun Electronics
+  Date: October 3rd, 2016
+  https://github.com/sparkfun/Simultaneous_RFID_Tag_Reader
+
+  Constantly reads and outputs any tags heard
+
+  If using the Simultaneous RFID Tag Reader (SRTR) shield, make sure the serial slide
+  switch is in the 'SW-UART' position
 */
 
 //Used for transmitting to the device
@@ -33,53 +40,6 @@ void setup()
   Serial.read(); //Throw away the user's character
 
   nano.startReading(); //Begin scanning for tags
-}
-
-/**
-Our loop 
-**/
-void loop()
-{
-  Serial.println("Execute command:");
-  Serial.println("(1) Read All");
-  Serial.println("(2) Read EPC");
-  Serial.println("(3) Read Userdata");
-  Serial.println("(4) Read TID");
-  Serial.println("(5) Read Passwords");
-  Serial.println("(6) Write Userdata");
-  Serial.println("(7) Write EPC");
-  
-  while (Serial.available() == 0) {
-  }
-
-  int option = Serial.parseInt();
-  byte EPC[12]; 
-  byte EPClength;
-  byte responseType = 0;
-  
-  switch(option) {
-    case 1:
-    case 2:
-      responseType = nano.readTagEPC(EPC, EPClength, 500); 
-      break;
-    case 3:
-      break;
-    case 4:
-      break;
-    case 5:
-      break;
-    case 6:
-      Userdata = get userdata
-      // test length
-      break;
-    case 7:
-      EPC = get user input
-      // test EPC is 20 bytes and hex
-      break;
-    default:
-      System.println("Unknown option")
-      break;
-  }
 }
 
 void loop()
