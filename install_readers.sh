@@ -15,10 +15,11 @@ else
 		read # skips headers
 		while IFS=" " read -r Port Protocol Type BoardName
 		do
-    			echo "Installing Reader $Port"
+    		echo "Installing Reader $Port"
 			arduino-cli compile --fqbn arduino:avr:uno RFID_reader/firmware
 			arduino-cli upload -p $Port --fqbn arduino:avr:uno RFID_reader/firmware
 		done
 	} <<< $boards
 fi
+# install rfid2mqtt dependencies
 sudo apt install python3-serial python3-paho-mqtt

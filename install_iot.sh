@@ -1,3 +1,4 @@
+# TODO
 # list all devices
 
 # configure wifi

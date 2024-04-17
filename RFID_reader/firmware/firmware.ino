@@ -94,7 +94,7 @@ void loop()
     else
     {
       //Unknown response
-      Serial.print("Unknown error");
+      Serial.println("Unknown error");
     }
   }
 }
