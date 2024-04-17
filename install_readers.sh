@@ -2,6 +2,7 @@
 curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=. sh
 sudo mv arduino-cli /usr/local/bin/arduino-cli
 arduino-cli core update-index
+arduino-cli core install arduino:avr
 # install the library for RFID
 arduino-cli lib install "SparkFun Simultaneous RFID Tag Reader Library"@1.1.1
 # list boards
@@ -20,3 +21,4 @@ else
 		done
 	} <<< $boards
 fi
+sudo apt install python3-serial python3-paho-mqtt

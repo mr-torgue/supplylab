@@ -10,7 +10,7 @@ import json
 import paho.mqtt.publish as publish
 
 def poll_RFID_reader():
-	with serial.Serial('/dev/ttyUSB0', 115200, timeout=0.8) as ser:
+	with serial.Serial(device, 115200, timeout=0.8) as ser:
 		# read 10000 bytes and split
 		data = ser.read(10000).decode("utf-8") 
 		print(data)
@@ -35,6 +35,7 @@ def poll_RFID_reader():
 		for epc in EPC:
 			publish.single("test", json.dumps(EPC[epc]), hostname="localhost")
 
+device = input('Specify serial device(/dev/ttyUSB0) (use arduino-cli board list)')
 x = input('Press any key to read (q to quit)')
 while x != 'q':
 	poll_RFID_reader()
