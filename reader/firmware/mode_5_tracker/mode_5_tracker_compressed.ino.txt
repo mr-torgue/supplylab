@@ -1,0 +1,244 @@
+#include <SparkFun_UHF_RFID_Reader.h>
+#include <uECC_vli.h>
+
+// include the settings for this mode
+#include "settings.h"
+
+RFID nano;
+
+static int RNG(uint8_t *dest, unsigned size) {
+  // Use the least-significant bits from the ADC for an unconnected pin (or connected to a source of 
+  // random noise). This can take a long time to generate random data if the result of analogRead(0) 
+  // doesn't change very frequently.
+  while (size) {
+    uint8_t val = 0;
+    for (unsigned i = 0; i < 8; ++i) {
+      int init = analogRead(0);
+      int count = 0;
+      while (analogRead(0) == init) {
+        ++count;
+      }
+      
+      if (count == 0) {
+         val = (val << 1) | (init & 0x01);
+      } else {
+         val = (val << 1) | (count & 0x01);
+      }
+    }
+    *dest = val;
+    ++dest;
+    --size;
+  }
+  // NOTE: it would be a good idea to hash the resulting random data using SHA-256 or similar.
+  return 1;
+}
+
+
+void setup()
+{
+  Serial.begin(115200);
+
+  while (!Serial)
+    ;
+  Serial.println();
+  Serial.println("Initializing...");
+
+  if (setupNano(115200) == false) // Configure nano to run at 38400bps
+  {
+    Serial.println("Module failed to respond. Please check wiring.");
+    while (1)
+      ; // Freeze!
+  }
+  Serial.println(F("Running in plain mode"));
+
+  nano.setRegion(REGION_AUSTRALIA); // Set to North America
+
+  nano.setReadPower(1800); // 5.00 dBm. Higher values may cause USB port to brown out
+  // Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
+
+  nano.setWritePower(1800); // 5.00 dBm. Higher values may cause USB port to brown out
+  // Max Write TX Power is 27.00 dBm and may cause temperature-limit throttling
+  uECC_set_rng(&RNG);
+}
+
+/*
+Tracker update firmware:
+Tracker expects the input of the tag (C1_ID, C2_ID), (C1_HMAC_ID, C2_HMAC_ID), (C1_poly, C2_poly)
+It calculates an updated (C1_poly', C2_poly') = (x0 * C1_poly + ai * C1_HMAC_ID, x0 * C1_poly + ai * C1_HMAC_ID)
+Tracker updates are 'dumb' they do it regardless of input
+Only if the inputs are not points on the curve will it fail
+*/
+void loop()
+{
+  // variables for storing data
+  const uint16_t EPCSize = 12;
+  byte EPC[EPCSize];
+
+  // specify curve and set dataSize
+  const struct uECC_Curve_t *curve = uECC_secp160r1();
+  const uint8_t nrWords = uECC_curve_num_words(curve); // for example if wordsize is 4B and curve is 20B, we have 20 / 4 = 5 
+  const uint8_t compSize = uECC_curve_num_bytes(curve) + 1;
+  const uint8_t decompSize = uECC_curve_num_bytes(curve) * 2;
+
+  // data should be 126 bytes
+  const uint8_t dataSize = 6 * compSize;
+  byte data[dataSize];
+
+  // variables for storing tag data
+  uint8_t cId[2][compSize], cHash[2][compSize], cPoly[2][compSize]; // compressed in
+  uint8_t cIdDecomp[2][decompSize], cHashDecomp[2][decompSize], cPolyDecomp[2][decompSize]; // decompressed in
+  uint8_t cPolyDecompNew[2][decompSize]; // decompressed out
+  uint8_t cPolyNew[2][compSize]; // compressed out
+
+  // define some points
+  uECC_word_t cPolyDecompNewNative[2][2 * compSize];
+  uECC_word_t cPolyDecompNative[2][2 * compSize];
+  uECC_word_t cHashDecompNative[2][2 * compSize];
+  uECC_word_t x0Native[2 * compSize];
+  uECC_word_t aNative[2 * compSize];
+  uECC_word_t tempResult1[2 * compSize];
+  uECC_word_t tempResult2[2 * compSize];
+
+  // convert a and x0 to native
+  uECC_vli_bytesToNative(x0Native, x0, sizeof(x0));
+  uECC_vli_bytesToNative(aNative, a, sizeof(a));
+
+  // declare configuration and filter for reading tag content
+  ReadConfig dataReadConfig = nano.initStandardReadTagDataOnce();
+  TagFilter dataReadFilter;
+
+  // read for tags
+  //ReadConfig config = nano.initStandardReadMultipleTagsOnceConfig();
+  //TagFilter filter = nano.initEmptyFilterWithMetadata();
+  //nano.readMultipleTagsWithFilterConfig(config, filter);
+  nano.readMultipleTags();
+  
+  // only if tags were found
+  for (uint8_t i = 0; i < nano.response.nrTags; i++)
+  {
+    // obtain EPCLength and print EPC
+    uint16_t EPCLength = nano.response.getEPCdata(i, EPC, EPCSize);
+    Serial.print(F("Found Tag: "));
+    printBytes(EPC, EPCLength);
+
+    // read tag data into data
+    dataReadFilter = nano.initEPCSingleReadFilter(EPC, EPCLength);
+    nano.readDataWithFilterConfig(0x03, 0x00, dataReadConfig, dataReadFilter, 10000);
+    if (nano.response.nrTags > 0)
+    {
+      Serial.print(F("User Bank: "));
+      uint16_t dataLength = nano.response.getBankdata(0, data, dataSize);
+      if(dataLength == dataSize)
+      {
+        printBytes(data, dataLength);
+        // every encryption has two messages
+        for(uint8_t j = 0; j < 2; j++)
+        {
+          // copy into right buffers, not strictly necessary but enhances readability
+          memcpy(cId[j], data + j * compSize, compSize);
+          memcpy(cHash[j], data + (2 + j) * compSize, compSize);
+          memcpy(cPoly[j], data + (4 + j) * compSize, compSize);
+
+          // get decompressed encryptions
+          uECC_decompress(cId[j], cIdDecomp[j], curve);
+          uECC_decompress(cHash[j], cHashDecomp[j], curve);
+          uECC_decompress(cPoly[j], cPolyDecomp[j], curve);
+
+          // check if it is a valid point
+          if (uECC_valid_public_key(cIdDecomp[j], curve) && uECC_valid_public_key(cHashDecomp[j], curve) && uECC_valid_public_key(cPolyDecomp[j], curve))
+          {
+            // variables need to be uECC_word_t
+            uECC_vli_bytesToNative(cPolyDecompNative[j], cPolyDecomp[j], decompSize);
+            uECC_vli_bytesToNative(cHashDecompNative[j], cHashDecomp[j], decompSize);
+
+            // update
+            uECC_vli_mult(tempResult1, x0Native, cPolyDecompNative[j], compSize);
+            uECC_vli_mult(tempResult2, aNative, cHashDecompNative[j], compSize);
+            uECC_vli_add(cPolyDecompNewNative[j], tempResult1, tempResult2, compSize);
+
+            // convert back to bytes
+            uECC_vli_nativeToBytes(cPolyDecompNew[j], sizeof(cPolyDecompNew[j]), cPolyDecompNewNative[j]);  
+
+            // compress
+            uECC_compress(cPolyDecompNew[j], cPolyNew[j], curve);
+
+            // re-encrypt?
+
+            // add all messages together again
+            memcpy(data, cId[j] + j * compSize, compSize);
+            memcpy(data, cHash[j] + (j + 2) * compSize, compSize);
+            memcpy(data, cPolyNew[j] + (j + 4) * compSize, compSize);
+          }
+
+          // write to tag
+          TagFilter filter = nano.initEPCWriteFilter(EPC, EPCLength);
+          nano.writeDataWithFilter(0x03, 0x00, data, sizeof(data), filter);
+          Serial.print(nano.response.status);
+          // test for success
+        }
+      }
+      else 
+      {
+        Serial.println(F("Not enough bytes retrieved!"));
+      }
+    }
+    else
+    {
+      Serial.println("Could not find tag!");
+    }
+  }
+  delay(1000);
+}
+
+// Gracefully handles a reader that is already configured and already reading continuously
+// Because Stream does not have a .begin() we have to do this outside the library
+boolean setupNano(long baudRate)
+{
+  nano.enableDebugging(Serial);
+  nano.begin(Serial1); // Tell the library to communicate over software serial port
+
+  // Test to see if we are already connected to a module
+  // This would be the case if the Arduino has been reprogrammed and the module has stayed powered
+  Serial1.begin(baudRate); // For this test, assume module is already at our desired baud rate
+  while (!Serial1)
+    ; // Wait for port to open
+
+  // About 200ms from power on the module will send its firmware version at 115200. We need to ignore this.
+  while (Serial1.available())
+    Serial1.read();
+
+  nano.getVersion();
+
+  if (nano.msg[0] == ERROR_WRONG_OPCODE_RESPONSE)
+  {
+    // This happens if the baud rate is correct but the module is doing a ccontinuous read
+    nano.stopReading();
+
+    Serial.println(F("Module continuously reading. Asking it to stop..."));
+
+    delay(1500);
+  }
+  else
+  {
+    // The module did not respond so assume it's just been powered on and communicating at 115200bps
+    Serial1.begin(115200); // Start software serial at 115200
+
+    nano.setBaud(baudRate); // Tell the module to go to the chosen baud rate. Ignore the response msg
+
+    Serial1.begin(baudRate); // Start the software serial port, this time at user's chosen baud rate
+    delay(250);
+  }
+
+  // Test the connection
+  nano.getVersion();
+  // Serial.println(nano.msg);
+  if (nano.msg[0] != ALL_GOOD)
+    return (false); // Something is not right
+
+  // The M6E has these settings no matter what
+  nano.setTagProtocol(); // Set protocol to GEN2
+
+  nano.setAntennaPort(); // Set TX/RX antenna ports to 1
+
+  return (true); // We are ready to rock
+}
