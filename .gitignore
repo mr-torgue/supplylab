@@ -18,6 +18,10 @@ reader/baseline/
 reader/rfchain/
 reader/stepauth/
 reader/tracker/
+reader/attack2/
+
+# Ignore some files
+*.tag
 
 # Unignore makefiles
 !*/Makefile
