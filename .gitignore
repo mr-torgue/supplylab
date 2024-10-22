@@ -10,6 +10,7 @@
 # Ignore some directories
 **/.vscode/
 **/.venv/
+**/venv/
 build/
 **/__pycache__/
 reader/out/
