@@ -42,7 +42,9 @@ class StepAuth:
         key = ECC.generate(curve="p256")
         sk_bytes = key.export_key(format="DER")
         pk_bytes = key.public_key().export_key(format="raw")
-        data = {"master": {
+        data = {
+                    "dir": dir,
+                    "master": {
                         "public": pk_bytes.hex(),
                         "private": sk_bytes.hex()
                     }, 
@@ -69,12 +71,15 @@ class StepAuth:
         for i in range(nr_readers):
             os.mkdir("%s/reader_%d" % (dir, i))
 
-            c_string_data = "uint32_t nrReaders = %d;\n" % nr_readers
-            c_string_data += "uint32_t readerIdSize = %d;\n" % reader_ID_size
-            c_string_data += "uint32_t tagIdSize = %d;\n" % tag_ID_size
+            c_string_data = "const char *readerLabel = \"StepAuth\";\n"
+            c_string_data += "const char *MQTT_CLIENT_ID = \"StepAuth RFID READER %d\";\n" % i
+            c_string_data += "const uint32_t nrReaders = %d;\n" % nr_readers
+            c_string_data += "const uint32_t readerIdSize = %d;\n" % reader_ID_size
+            c_string_data += "const uint32_t tagIdSize = %d;\n" % tag_ID_size
 
             # convert reader ID to  byte array
-            c_string_data += "uint8_t readerId[%d] = {" % (reader_ID_size)
+            c_string_data += "const uint32_t readerId = %d;\n" % i
+            c_string_data += "const uint8_t readerIdBytes[%d] = {" % (reader_ID_size)
             for _byte in i.to_bytes(reader_ID_size, 'big'):
                 c_string_data += "%d, " % _byte
             c_string_data = c_string_data[:-2]
@@ -82,20 +87,20 @@ class StepAuth:
 
             # convert private key to bytes
             _bytes = bytes.fromhex(data["readers"][i]["private"])
-            c_string_data += "uint8_t privKey[%d] = {" % (len(_bytes))
+            c_string_data += "const uint8_t privKey[%d] = {" % (len(_bytes))
             for _byte in _bytes:
                 c_string_data += "%d, " % _byte
             c_string_data = c_string_data[:-2]
             c_string_data += "};\n"
 
             # store public key of issuer (ignore the 0x4 at the beginning)
-            c_string_data += "uint8_t pubKeyIssuer[%d] = {" % (len(pk_bytes[1:]))
+            c_string_data += "const uint8_t pubKeyIssuer[%d] = {" % (len(pk_bytes[1:]))
             for _byte in pk_bytes[1:]:
                 c_string_data += "%d, " % _byte
             c_string_data = c_string_data[:-2]
             c_string_data += "};\n"
             
-            with open("%s/reader_%d/settings.h" % (dir, i), "w") as f:
+            with open("%s/reader_%d/scheme_settings.h" % (dir, i), "w") as f:
                 f.write(c_string_data)
         
     '''
@@ -138,7 +143,7 @@ class StepAuth:
         cryptogram = len(cryptogram).to_bytes(2, 'big') + cryptogram
         print("tag content length: %d\ntag content: %s" % (len(cryptogram), cryptogram.hex()))
         tagObj = Tag(tag, cryptogram, "stepauth")
-        with open("%d.tag" % (tag), "wb") as f:
+        with open("%s/%d.tag" % (data["dir"], tag), "wb") as f:
             pickle.dump(tagObj, f)
 
     '''
@@ -153,7 +158,7 @@ class StepAuth:
             privKey = data["readers"][reader]["private"];
             pubKey = data["readers"][reader]["public"];
             h = SHA256.new(cryptogram[:-64])
-            verifier = DSS.new(issuer_pk, "deterministic-rfc6979")
+            verifier = DSS.new(issuer_pk, "fips-186-3")
             try:
                 verifier.verify(h, cryptogram[-64:])
                 print("The message is authentic.")
@@ -185,7 +190,7 @@ class StepAuth:
             cryptogram = len(cryptogram).to_bytes(2, 'big') + cryptogram
             print("tag content length: %d\ntag content: %s" % (len(cryptogram), cryptogram.hex()))
             tag.updateTagContent(reader, cryptogram)
-            with open("%d.tag" % (tag.id), "wb") as f:
+            with open("%s/%d.tag" % (data["dir"], tag.id), "wb") as f:
                 pickle.dump(tag, f)
         else:
             print("Verification was not successful!")
@@ -216,10 +221,12 @@ class StepAuth:
         content = b'\x04' + content # add the 0x04 prefix again
         try:
             verifier.verify(h, signature)
-            print("The message is authentic.")
             m = decrypt(privKey, content)
             print(m.hex())
-            m = unpad(m, 16)
+            try:
+                m = unpad(m, 16)
+            except:
+                None
             print(m.hex())
             readerID = m[:reader_ID_size]
             print(readerID)

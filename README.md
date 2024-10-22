@@ -28,7 +28,8 @@ Follow the guides.
 
 # Installation Scipts
 install.sh sets everything up.
-It installs Mosquitto mqtt broker and MQTTX.
+It installs Mosquitto mqtt broker and mysql database.
+It also
 It flushes firmware to the reader and installs arduino-cli.
 Todo:
 * automatically configure mqtt

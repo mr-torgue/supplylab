@@ -36,9 +36,9 @@ tag = args.tag[0]
 
 try:
     data = json.load(open(keyfile))
-    if reader >= len(data["readers"]) or reader < 0:
+    if scheme != "baseline" and (reader >= len(data["readers"]) or reader < 0):
         raise(ValueError('Readers can only use range 0..nr_readers'))
-    with open("%d.tag" % (tag), 'rb+') as tagfile:
+    with open("%s/%d.tag" % (data["dir"], tag), 'rb+') as tagfile:
         tag = pickle.load(tagfile)
         # StepAuth
         if scheme == "stepauth":

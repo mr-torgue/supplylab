@@ -13,6 +13,7 @@ TODO:
 import argparse
 import os
 import shutil
+import re
 
 from protocols.Tracker import Tracker
 from protocols.StepAuth import StepAuth
@@ -48,7 +49,7 @@ try:
             valid_paths.append(path)
 except Exception as e:
     if scheme == "tracker":
-        print("A path file is required for tracker!\nExiting.")
+        print("A path file is required for tracker! Error: %s\nExiting." % e)
         exit()
 
 try:

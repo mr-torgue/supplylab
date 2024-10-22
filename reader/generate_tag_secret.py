@@ -9,7 +9,8 @@ import traceback
 from protocols.Tracker import Tracker
 from protocols.StepAuth import StepAuth
 from protocols.Baseline import Baseline
-from protocols.RFChain import RFChain
+from protocols.RFChain import RFChain\
+
 
 parser = argparse.ArgumentParser(description='Generates a tag secret')
 parser.add_argument('-f', dest='keyfile', type=str, nargs=1,
@@ -20,6 +21,8 @@ parser.add_argument('-p', dest='path', type=int, nargs="+",
                     help='Specify a path', required=False)
 parser.add_argument('-t', dest='tag', type=int, nargs=1,
                     help='Tag identifier', required=True)
+parser.add_argument('-r', dest='reader', type=int, nargs=1,
+                    help='Specify a reader', required=False)
 
 args = parser.parse_args()
 keyfile = args.keyfile[0]
@@ -54,7 +57,11 @@ try:
         Tracker.generate_tag_secret(tag, data)
     # RF-chain
     elif scheme == "rfchain":
-        RFChain.generate_tag_secret(tag, data)
+        try:
+            reader = args.reader[0]
+        except Exception as e:
+            print("RF-Chain needs a reader ID to initialize the tag: %s" % (e))
+        RFChain.generate_tag_secret(reader, tag, data)
     else:
         raise(ValueError('Mode not supported!'))
 except FileNotFoundError as e:

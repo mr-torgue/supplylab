@@ -31,7 +31,7 @@ tag = args.tag[0]
 
 try:
     data = json.load(open(keyfile))
-    with open("%d.tag" % tag, 'rb') as tagfile:    
+    with open("%s/%d.tag" % (data["dir"], tag), 'rb') as tagfile:    
         tag = pickle.load(tagfile)
         # StepAuth
         if scheme == "stepauth":
@@ -45,6 +45,7 @@ try:
             Tracker.verify_tag_standard(tag, data)
         # RF-chain
         elif scheme == "rfchain":
+            RFChain.verify_tag(tag, data)
             None
         else:
             raise(ValueError('Mode not supported!'))

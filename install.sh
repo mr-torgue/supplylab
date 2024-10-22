@@ -1,2 +1,3 @@
 ./install_mqtt.sh
-./install_readers.sh
+./install_mysql.sh
+./install_arduino.sh

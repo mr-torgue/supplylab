@@ -50,11 +50,13 @@ void setup()
 
   nano.setRegion(REGION_AUSTRALIA); //Set to North America
 
-  nano.setReadPower(1800); //5.00 dBm. Higher values may cause USB port to brown out
+  nano.setReadPower(2200); //5.00 dBm. Higher values may cause USB port to brown out
   //Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
 
-  nano.setWritePower(1800); //5.00 dBm. Higher values may cause USB port to brown out
+  nano.setWritePower(2200); //5.00 dBm. Higher values may cause USB port to brown out
   //Max Write TX Power is 27.00 dBm and may cause temperature-limit throttling
+  nano.enableReadFilterWithTimeout(1000);
+  nano.sendMessage(TMR_SR_OPCODE_CLEAR_TAG_ID_BUFFER, NULL, 0);
 
 }
 
@@ -114,9 +116,9 @@ String getUserEPC() {
  
 // Scans a single random tag using the readTagEPC function
 void readRandomTagId() {
-  uint16_t myEPClength = 12;
+  uint16_t myEPClength = 16;
   byte myEPC[myEPClength]; 
-  while (nano.response.status != RESPONSE_SUCCESS)
+  while (nano.response.status != RESPONSE_SUCCESS && nano.response.status != ALL_GOOD)
   {
     myEPClength = sizeof(myEPC);
     nano.readTagEPC(1500); 
@@ -135,7 +137,7 @@ void readRandomTagId() {
 void readMultipleTagIds() {
   Serial.println(F("Provide EPC Filter (\"\" to leave empty):"));
   String EPCFilter = getUserEPC();
-  uint16_t EPCSize = 12;
+  uint16_t EPCSize = 16;
   byte EPC[EPCSize];
   int metadataSize = 128;
   char metadata[metadataSize];
@@ -392,7 +394,7 @@ void loop()
     }
     default:
       Serial.println(F("Invalid option"));
-      break;
+      break; 
   }
 }
 
@@ -400,7 +402,7 @@ void loop()
 //Because Stream does not have a .begin() we have to do this outside the library
 boolean setupNano(long baudRate)
 {
-  nano.enableDebugging(Serial); 
+  //nano.enableDebugging(Serial); 
   nano.begin(Serial1); //Tell the library to communicate over software serial port
 
   //Test to see if we are already connected to a module

@@ -5,6 +5,11 @@
         "string_view": "cpp",
         "initializer_list": "cpp",
         "utility": "cpp",
-        "functional": "c"
+        "functional": "c",
+        "sstream": "cpp",
+        "string": "cpp",
+        "memory": "cpp",
+        "optional": "cpp",
+        "new": "cpp"
     }
 }

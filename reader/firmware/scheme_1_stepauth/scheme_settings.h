@@ -1,0 +1,9 @@
+const char *readerLabel = "StepAuth";
+const char *MQTT_CLIENT_ID = "StepAuth RFID READER 0";
+const uint32_t nrReaders = 10;
+const uint32_t readerIdSize = 4;
+const uint32_t tagIdSize = 4;
+const uint32_t readerId = 0;
+const uint8_t readerIdBytes[4] = {0, 0, 0, 0};
+const uint8_t privKey[32] = {117, 210, 157, 53, 199, 95, 199, 117, 100, 65, 69, 38, 135, 189, 17, 141, 231, 162, 228, 105, 43, 172, 158, 36, 147, 229, 48, 246, 106, 23, 14, 39};
+const uint8_t pubKeyIssuer[64] = {210, 208, 10, 206, 252, 236, 58, 136, 168, 210, 205, 178, 245, 208, 194, 6, 19, 96, 102, 154, 50, 133, 39, 108, 27, 227, 92, 176, 83, 130, 251, 143, 141, 195, 30, 2, 214, 223, 176, 157, 194, 240, 78, 184, 45, 62, 78, 123, 151, 59, 94, 128, 29, 246, 53, 224, 92, 27, 28, 25, 159, 222, 176, 112};

@@ -1,3 +1,22 @@
-build
-__pycache__
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+
+# Ignore some directories
+*/.vscode
+*/.venv
+build/
+*/__pycache__
 reader/out
+reader/baseline
+reader/rfchain
+reader/stepauth
+reader/tracker
+
+# Unignore makefiles
+!*/Makefile

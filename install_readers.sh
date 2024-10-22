@@ -6,20 +6,20 @@ arduino-cli core install arduino:avr
 # install the library for RFID
 arduino-cli lib install "SparkFun Simultaneous RFID Tag Reader Library"@1.1.1
 # list boards
-boards=$(arduino-cli board list)
-if [$boards -eq "No boards found."]
-then
-	echo "No RFID readers connected"
-else
-	{
-		read # skips headers
-		while IFS=" " read -r Port Protocol Type BoardName
-		do
-    		echo "Installing Reader $Port"
-			arduino-cli compile --fqbn arduino:avr:uno RFID_reader/firmware
-			arduino-cli upload -p $Port --fqbn arduino:avr:uno RFID_reader/firmware
-		done
-	} <<< $boards
-fi
+#boards=$(arduino-cli board list)
+#if [$boards -eq "No boards found."]
+#then
+#	echo "No RFID readers connected"
+#else
+#	{
+#		read # skips headers
+#		while IFS=" " read -r Port Protocol Type BoardName
+#		do
+ #   		echo "Installing Reader $Port"
+#			arduino-cli compile --fqbn arduino:avr:uno RFID_reader/firmware
+#			arduino-cli upload -p $Port --fqbn arduino:avr:uno RFID_reader/firmware
+#		done
+#	} <<< $boards
+#fi
 # install rfid2mqtt dependencies
-sudo apt install python3-serial python3-paho-mqtt
+#sudo apt install python3-serial python3-paho-mqtt

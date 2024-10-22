@@ -93,7 +93,7 @@ class Tracker:
 
         # calculate valid paths
         valid_paths_evaluations = []
-        print(valid_paths)
+        print("Generating evaluations for %d paths: %s" % (len(valid_paths), valid_paths))
         for path in valid_paths:
             path_len = len(path)
             eval = (a0 * x0**path_len) % n
@@ -110,26 +110,30 @@ class Tracker:
         for i in range(nr_readers):
             c_string_data = ""
             os.mkdir("%s/reader_%d" % (dir, i))
+            # write labels
+            c_string_data += "const char *readerLabel = \"Tracker Update\";\n"
+            c_string_data += "const char *MQTT_CLIENT_ID = \"Tracker RFID READER %d\";\n" % i
+
             # write reader ID and curve size in bytes
-            c_string_data += "uint16_t curveSizeBytes = %d;\n" % curveSizeBytes
-            c_string_data += "uint32_t readerId = %d;\n" % i
+            c_string_data += "const uint16_t curveSizeBytes = %d;\n" % curveSizeBytes
+            c_string_data += "const uint32_t readerId = %d;\n" % i
 
             # write x0
-            c_string_data += "uint8_t x0[%d] = {" % (nSize)
+            c_string_data += "const uint8_t x0[%d] = {" % (nSize)
             for _byte in x0.to_bytes(nSize, 'big'):
                 c_string_data += "%d, " % _byte
             c_string_data = c_string_data[:-2] # remove ", "
             c_string_data += "};\n"
 
             # write a
-            c_string_data += "uint8_t a[%d] = {" % (nSize)
+            c_string_data += "const uint8_t a[%d] = {" % (nSize)
             for _byte in data["readers"][i]["a"].to_bytes(nSize, 'big'):
                 c_string_data += "%d, " % _byte
             c_string_data = c_string_data[:-2] # remove ", "
             c_string_data += "};\n"
 
             # write public key
-            c_string_data += "uint8_t pubKey[%d] = {" % (2 * curveSizeBytes)
+            c_string_data += "const uint8_t pubKey[%d] = {" % (2 * curveSizeBytes)
             for _byte in data["public"]["x"].to_bytes(curveSizeBytes, 'big'):
                 c_string_data += "%d, " % _byte
             for _byte in data["public"]["y"].to_bytes(curveSizeBytes, 'big'):
@@ -138,36 +142,37 @@ class Tracker:
             c_string_data += "};\n"   
 
             # write P
-            c_string_data += "uint8_t P[%d] = {" % (2 * curveSizeBytes)
+            c_string_data += "const uint8_t P[%d] = {" % (2 * curveSizeBytes)
             for _byte in data["P"]["x"].to_bytes(curveSizeBytes, 'big'):
                 c_string_data += "%d, " % _byte
             for _byte in data["P"]["y"].to_bytes(curveSizeBytes, 'big'):
                 c_string_data += "%d, " % _byte
             c_string_data = c_string_data[:-2] # remove ", "
             c_string_data += "};\n"   
-
-            with open("%s/reader_%d/settings.h" % (dir, i), "w") as f:
+            with open("%s/reader_%d/scheme_settings.h" % (dir, i), "w") as f:
                 f.write(c_string_data)
 
         # generate reader settings file for readers that need to do the verification (manager)
         c_string_data = ""
         os.mkdir("%s/manager_%d" % (dir, nr_readers))
+        c_string_data += "const char *readerLabel = \"Tracker Verify\";\n"
+        c_string_data += "const char *MQTT_CLIENT_ID = \"Tracker RFID READER %d\";\n" % nr_readers
         # write reader ID and curve size in bytes
-        c_string_data += "uint16_t curveSizeBytes = %d;\n" % curveSizeBytes 
-        c_string_data += "uint16_t nrPointsSizeBytes = %d;\n" % nSize
-        c_string_data += "uint16_t nrPaths = %d;\n" % len(data["valid_paths"])
-        c_string_data += "uint16_t nrReaders = %d;\n" % nr_readers
-        c_string_data += "uint32_t readerId = %d;\n" % nr_readers
+        c_string_data += "const uint16_t curveSizeBytes = %d;\n" % curveSizeBytes 
+        c_string_data += "const uint16_t nrPointsSizeBytes = %d;\n" % nSize
+        c_string_data += "const uint16_t nrPaths = %d;\n" % len(data["valid_paths"])
+        c_string_data += "const uint16_t nrReaders = %d;\n" % nr_readers
+        c_string_data += "const uint32_t readerId = %d;\n" % nr_readers
 
         # write x0
-        c_string_data += "uint8_t x0[%d] = {" % (nSize)
+        c_string_data += "const uint8_t x0[%d] = {" % (nSize)
         for _byte in x0.to_bytes(nSize, 'big'):
             c_string_data += "%d, " % _byte
         c_string_data = c_string_data[:-2] # remove ", "
         c_string_data += "};\n"
 
         # write all values of a
-        c_string_data += "uint8_t a[%d][%d] = {" % (nr_readers, nSize)
+        c_string_data += "const uint8_t a[%d][%d] = {" % (nr_readers, nSize)
         for reader in data["readers"]:
             c_string_data += "{"
             for _byte in reader["a"].to_bytes(nSize, 'big'):
@@ -178,10 +183,10 @@ class Tracker:
         c_string_data += "};\n"
 
         # write k as a string
-        c_string_data += "char *k = \"%s\";\n" % (k.hex())
+        c_string_data += "const char *k = \"%s\";\n" % (k.hex())
 
         # write public key
-        c_string_data += "uint8_t pubKey[%d] = {" % (2 * curveSizeBytes)
+        c_string_data += "const uint8_t pubKey[%d] = {" % (2 * curveSizeBytes)
         for _byte in data["public"]["x"].to_bytes(curveSizeBytes, 'big'):
             c_string_data += "%d, " % _byte
         for _byte in data["public"]["y"].to_bytes(curveSizeBytes, 'big'):
@@ -190,14 +195,14 @@ class Tracker:
         c_string_data += "};\n"   
 
         # write private key (+1 because taken from n)
-        c_string_data += "uint8_t privKey[%d] = {" % (curveSizeBytes + 1)
+        c_string_data += "const uint8_t privKey[%d] = {" % (curveSizeBytes + 1)
         for _byte in data["private"].to_bytes(curveSizeBytes + 1, 'big'):
             c_string_data += "%d, " % _byte
         c_string_data = c_string_data[:-2] # remove ", "
         c_string_data += "};\n"   
 
         # write P
-        c_string_data += "uint8_t P[%d] = {" % (2 * curveSizeBytes)
+        c_string_data += "const uint8_t P[%d] = {" % (2 * curveSizeBytes)
         for _byte in data["P"]["x"].to_bytes(curveSizeBytes, 'big'):
             c_string_data += "%d, " % _byte
         for _byte in data["P"]["y"].to_bytes(curveSizeBytes, 'big'):
@@ -206,7 +211,7 @@ class Tracker:
         c_string_data += "};\n"   
 
         # write path evaluations, store as a 2D array the point gets encoded as a 2 x curveSizeBytes array (x, y)
-        c_string_data += "uint8_t valid_paths[%d][%d] = {" % (len(data["valid_paths"]), 2 * curveSizeBytes)
+        c_string_data += "const uint8_t valid_paths[%d][%d] = {" % (len(data["valid_paths"]), 2 * curveSizeBytes)
         for valid_path in data["valid_paths"]:
             c_string_data += "{"
             for _byte in valid_path["x"].to_bytes(curveSizeBytes, 'big'):
@@ -219,7 +224,7 @@ class Tracker:
         c_string_data += "};\n"
 
         # add path labels
-        c_string_data += "char *valid_path_labels[] = {";
+        c_string_data += "const char *valid_path_labels[] = {";
         for valid_path in data["valid_paths"]:
             c_string_data += "\"%s\", " % (valid_path["label"])
         c_string_data = c_string_data[:-2] # remove ", "
@@ -227,7 +232,7 @@ class Tracker:
 
 
         # add all public keys and other settings
-        with open("%s/manager_%d/settings.h" % (dir, nr_readers), "w") as f:
+        with open("%s/manager_%d/scheme_settings.h" % (dir, nr_readers), "w") as f:
             f.write(c_string_data)
 
 
@@ -417,7 +422,7 @@ Polynomial 2: (%d, %d)
         for new_point in new_points:
             message += new_point.x.to_bytes(curveSizeBytes, 'big') + new_point.y.to_bytes(curveSizeBytes, 'big') 
         tag.updateTagContent(reader, message)
-        with open("1.tag", "wb") as f:
+        with open("%d.tag" % (tag.id), "wb") as f:
             pickle.dump(tag, f)
         print("tag content length: %d\ntag content: %s" % (len(message), message.hex()))
 

@@ -11,14 +11,15 @@ from Tag import Tag
 
 '''
 The baseline uses a simple tag secret based on a shared key.
-Every reader appends its ID to the tag secret, leading to Enc(k, r1, ..., rn).
+Every reader appends its ID to the tag secret, leading to Enc(k, t, r1, ..., rn).
 Checking is just decrypting and reading the path. 
 '''
 class Baseline:
 
 
     '''
-    Only data that is needed is a shared key k, reader ID, and the reader length in bytes
+    Sets up the baseline scheme by generating a shared key k
+    Generates a c header file and a json settings file
     '''
     @staticmethod
     def generate_reader_configs(nr_readers: int, valid_paths: list, dir: str):
@@ -28,8 +29,13 @@ class Baseline:
         # generate and store aes key
         nr_bytes = 32
         aes_key = get_random_bytes(nr_bytes)
-        data = {"key": aes_key.hex(), "reader_ID_size": reader_ID_size}
-        c_string_shared_key = "uint8_t sharedKey[%d] = {" % (nr_bytes)
+        data = { "dir": dir,
+                 "key": aes_key.hex(), 
+                 "reader_id_size": reader_ID_size
+                }
+
+        # represent the shared key
+        c_string_shared_key = "const uint8_t sharedKey[%d] = {" % (nr_bytes)
         for _byte in aes_key:
             c_string_shared_key += "%d, " % _byte
         # remove last two elements [, ]
@@ -43,10 +49,13 @@ class Baseline:
         # create header files for all readers
         for i in range(nr_readers):
             os.mkdir("%s/reader_%d" % (dir, i))
-            c_string_data = "uint32_t readerIdSize = %d;\n" % reader_ID_size
+            c_string_data = "const char *readerLabel = \"Baseline\";\n"
+            c_string_data += "const char *MQTT_CLIENT_ID = \"Baseline RFID READER %d\";\n" % i
+            c_string_data += "const uint32_t readerIdSize = %d;\n" % reader_ID_size
 
             # convert reader ID to bytes
-            c_string_data += "uint8_t readerId[%d] = {" % reader_ID_size
+            c_string_data += "const uint32_t readerId = %d;\n" % i
+            c_string_data += "const uint8_t readerIdBytes[%d] = {" % reader_ID_size
             for _byte in i.to_bytes(reader_ID_size, 'big'):
                 c_string_data += "%d, " % _byte
             # remove last two elements [, ]
@@ -55,7 +64,7 @@ class Baseline:
 
             # add shared key
             c_string_data += c_string_shared_key
-            with open("%s/reader_%d/settings.h" % (dir, i), "w") as f:
+            with open("%s/reader_%d/scheme_settings.h" % (dir, i), "w") as f:
                 f.write(c_string_data)
         
     '''
@@ -63,32 +72,43 @@ class Baseline:
     '''
     @staticmethod
     def generate_tag_secret(tag: int, data: dict):
-        message = tag.to_bytes(data["reader_ID_size"], 'big')
-        message = struct.pack(">H%ds" % len(message), len(message), message)
+        message = tag.to_bytes(data["reader_id_size"], 'big')
         print("Plaintext message: %s" % message.hex())
         cipher = AES.new(bytes.fromhex(data["key"]), AES.MODE_GCM)
         c, ctag = cipher.encrypt_and_digest(message)
         cryptogram = cipher.nonce + ctag + c
-        print("ciphertext length: %d (nonce %d, tag %d)\nciphertext: %s" % (len(cryptogram), len(cipher.nonce), len(ctag), cryptogram.hex()))
 
-        # creata tag object
+        # create tag object
         cryptogram = len(cryptogram).to_bytes(2, 'big') + cryptogram
+        print("ciphertext length: %d (nonce %d, tag %d)\nciphertext: %s" % (len(cryptogram), len(cipher.nonce), len(ctag), cryptogram.hex()))
         tagObj = Tag(tag, cryptogram, "baseline")
-        with open("%d.tag" % (tag), "wb") as f:
+        with open("%s/%d.tag" % (data["dir"], tag), "wb") as f:
             pickle.dump(tagObj, f)
 
-    '''
-    '''
-    @staticmethod
-    def decrypt_tag(tag: Tag, path: list):
-        None
 
     '''
     Decrypts message, adds its own identifier and reencrypts
     '''
     @staticmethod
     def update_tag(reader: int, tag: Tag, data: dict):
-        None
+        # load keys and other data
+        k = data["key"]
+        reader_ID_size = data["reader_id_size"]
+        (success, m) = Baseline.verify_tag(tag, data)
+        if success:
+            reader_bytes = reader.to_bytes(data["reader_id_size"], "big")
+            message = struct.pack(">%ds%ds" % (len(m), data["reader_id_size"]), m, reader_bytes)
+            print("New plaintext message: %s" % message.hex())
+            cipher = AES.new(bytes.fromhex(data["key"]), AES.MODE_GCM)
+            c, ctag = cipher.encrypt_and_digest(message)
+            cryptogram = cipher.nonce + ctag + c
+
+            # create tag object
+            cryptogram = len(cryptogram).to_bytes(2, 'big') + cryptogram
+            print("ciphertext length: %d (nonce %d, tag %d)\nciphertext: %s" % (len(cryptogram), len(cipher.nonce), len(ctag), cryptogram.hex()))
+            tag.updateTagContent(reader, cryptogram)
+            with open("%s/%d.tag" % (data["dir"], tag.id), "wb") as f:
+                pickle.dump(tag, f)
 
     '''
     Decrypts message and returns the path that has been followed
@@ -97,7 +117,7 @@ class Baseline:
     def verify_tag(tag: Tag, data: dict) -> (bool, bytearray):
         # load keys and other data
         k = data["key"]
-        reader_ID_size = data["reader_ID_size"]
+        reader_ID_size = data["reader_id_size"]
 
         # load tag content and decrypt
         nonce = tag.content[2:18]
@@ -107,9 +127,11 @@ class Baseline:
         plaintext = cipher.decrypt(ciphertext)
         try:
             cipher.verify(ctag)
-            print("The message is authentic: %s" % plaintext.hex())
-            
+            print("nonce: %s\ntag: %s\nc: %s\nkey: %s" % (nonce.hex(), ctag.hex(), ciphertext.hex(), data["key"]))
+            print("The message (%s) is authentic: %s" % (tag.content.hex(), plaintext.hex()))
+            return (True, plaintext)
             # check if every 4 bytes is a valid reader
 
-        except ValueError:
-            print("Key incorrect or message corrupted")
+        except ValueError as e:
+            print("Key incorrect or message corrupted. Error message: %s" % (e))
+            return (False, None)
