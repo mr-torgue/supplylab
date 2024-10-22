@@ -8,15 +8,15 @@
 !*/
 
 # Ignore some directories
-*/.vscode
-*/.venv
+**/.vscode/
+**/.venv/
 build/
-*/__pycache__
-reader/out
-reader/baseline
-reader/rfchain
-reader/stepauth
-reader/tracker
+**/__pycache__/
+reader/out/
+reader/baseline/
+reader/rfchain/
+reader/stepauth/
+reader/tracker/
 
 # Unignore makefiles
 !*/Makefile
