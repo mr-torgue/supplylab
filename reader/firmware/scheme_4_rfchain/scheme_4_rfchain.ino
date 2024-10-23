@@ -138,9 +138,6 @@ void xorBytes(const uint8_t * const a, const uint16_t aLen, const uint8_t * cons
         // xor the rest
         for(uint16_t i = diff; i < len; i++)
         {
-            Serial.println(i);
-            Serial.println(a[i]);
-            Serial.println(b[i]);
             output[i] = a[i - offsetA] ^ b[i- offsetB];
         }
     }
@@ -274,7 +271,7 @@ bool update(uint8_t *data, const uint16_t dataLen, uint8_t *EPC, uint16_t EPCLen
     xorBytes(a, aLen, ki, sizeof(ki), b, aLen);
     bytesToHexString(b, bLen, bHex, sizeof(bHex));
 
-    bufLen = snprintf(buf, sizeof(buf), "a: ");
+    bufLen = snprintf(buf, sizeof(buf), "Going to sign a(%d): ", aLen);
     bufLen += bytesToHexString(a, aLen, buf + bufLen, sizeof(buf) - bufLen);
     printSerial(buf);
 
@@ -284,12 +281,16 @@ bool update(uint8_t *data, const uint16_t dataLen, uint8_t *EPC, uint16_t EPCLen
     hash.update(a, aLen);
     hash.finalize(digest, sizeof(digest));
 
+    bufLen = snprintf(buf, sizeof(buf), "hash(a): ");
+    bufLen += bytesToHexString(digest, sizeof(digest), buf + bufLen, sizeof(buf) - bufLen);
+    printSerial(buf);
+
     if(!uECC_sign(privKey, digest, sizeof(digest), a, curve))
     {
         print("Could not create new a!");
         return false;
     }
-    bufLen = snprintf(buf, sizeof(buf), "a: ");
+    bufLen = snprintf(buf, sizeof(buf), "new a: ");
     bufLen += bytesToHexString(a, aLen, buf + bufLen, sizeof(buf) - bufLen);
     printSerial(buf);
 
@@ -401,12 +402,14 @@ bool verify(const uint8_t *data, const uint16_t dataLen, uint8_t *plaintext, uin
 
                 // verify all the way to index 1
                 for(uint8_t i = index; i > 0; i--)
-                {
+                {   
+                    bufLen = sprintf(buf, "Verifying i=%d", i);
+                    printSerial(buf);
                     // create new hi
                     uint8_t hi[hLen];
                     memcpy(hi, h, hLen);
-                    hi[hLen - 2] = index << 8;
-                    hi[hLen - 1] = index;
+                    hi[hLen - 2] = i << 8;
+                    hi[hLen - 1] = i;
 
                     // generate ki from hi               
                     uint8_t ki[32];
@@ -446,13 +449,11 @@ bool verify(const uint8_t *data, const uint16_t dataLen, uint8_t *plaintext, uin
 
                             // calculate a[i-1]
                             uint8_t ai_1[2 * curveSizeBytes];
-                            xorBytes(b, bLen, ki, sizeof(ki), ai_1, 2 * curveSizeBytes);
 
-                            // prepare hash
-                            hash.reset();
                             // signature over a 32 bytes hash (SHA256)
                             if(index == 1)
                             {
+                                xorBytes(b, bLen, ki, sizeof(ki), ai_1, curveSizeBytes);
                                 hash.update(ai_1, curveSizeBytes);
                                 hash.finalize(digest, sizeof(digest));
                                 // ai_1 should be SHA256(ID||f||pwd||r)
@@ -475,9 +476,24 @@ bool verify(const uint8_t *data, const uint16_t dataLen, uint8_t *plaintext, uin
                             // signature over a 64 bytes signature
                             else 
                             {
+                                xorBytes(b, bLen, ki, sizeof(ki), ai_1, 2 * curveSizeBytes);
+                                // prepare hash
+                                hash.reset();
                                 hash.update(ai_1, 2 * curveSizeBytes);
                                 hash.finalize(digest, sizeof(digest));
                             }
+
+                            bufLen = snprintf(buf, sizeof(buf), "a-1 Hex(%d): ", sizeof(ai_1));
+                            bufLen += bytesToHexString(ai_1, sizeof(ai_1), buf + bufLen, sizeof(buf) - bufLen);
+                            printSerial(buf);
+
+                            bufLen = snprintf(buf, sizeof(buf), "ai (%d): ", aLen);
+                            bufLen += bytesToHexString(ai, sizeof(ai), buf + bufLen, sizeof(buf) - bufLen);
+                            printSerial(buf);
+
+                            bufLen = snprintf(buf, sizeof(buf), "digest of ai: ");
+                            bufLen += bytesToHexString(digest, sizeof(digest), buf + bufLen, sizeof(buf) - bufLen);
+                            printSerial(buf);
 
                             // check signature
                             if(!uECC_verify(pubKeys[lastReader], digest, sizeof(digest), ai, curve))

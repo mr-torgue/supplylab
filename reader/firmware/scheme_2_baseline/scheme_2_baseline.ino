@@ -69,10 +69,11 @@ void loop()
         if (nano.response.nrTags > 0)
         {
             uint16_t dataLength = nano.response.getBankdata(0, data, dataSize);
-            if (dataLength >= 2)
+            // there should at least be 34 bytes
+            if (dataLength >= 34 && dataLength <= 1024)
             {
                 uint16_t msgLength = data[0] << 8 | data[1];
-                if(msgLength + 2 <= dataLength)
+                if(msgLength >= 32 && msgLength + 2 <= dataLength)
                 {
                     // print the buffer to mqtt and serial
                     bufLen = snprintf(buf, sizeof(buf), "Raw Embedded Data(encrypted): ");

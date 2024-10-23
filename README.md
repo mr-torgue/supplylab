@@ -47,3 +47,20 @@ The following still needs to be done for the python script:
 For the reader firmware, the following needs to be done:
 * add write to tag functionality
 * read all fields instead of timestamp + EPC
+
+# Improvements an Future Work
+
+## Scheme Firmware
+The scheme firmware can be a bit buggy:
+1. Writes sometimes corrupt the tag content
+2. Loses connection to MQTT every now and then
+
+To prevent this we should make the firmware more reliable.
+An easy way to do this is to add a check function which executed periodically and fixes connection issues.
+Tag corruption should probably be done in the RFID library.
+
+## Reader Firmware
+The reader is not always able to find tags.
+
+# RFID Library
+1. Add write checks

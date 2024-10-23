@@ -42,7 +42,7 @@ try:
             Baseline.verify_tag(tag, data)
         # Tracker
         elif scheme == "tracker":
-            Tracker.verify_tag_standard(tag, data)
+            Tracker.verify_tag(tag, data)
         # RF-chain
         elif scheme == "rfchain":
             RFChain.verify_tag(tag, data)

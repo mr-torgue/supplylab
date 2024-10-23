@@ -151,6 +151,9 @@ void loop()
                             for (j = 0; j < nrPaths; j++)
                             {
                                 uECC_point_mult_bytes(valid_path_hmac, valid_paths[j], hmac, sizeof(hmac), curve);
+                                bufLen = snprintf(buf, sizeof(buf), "valid_path_hmac: ");
+                                bufLen += bytesToHexString(valid_path_hmac, sizeof(valid_path_hmac), buf + bufLen, sizeof(buf) - bufLen);
+                                printSerial(buf);
                                 if (memcmp(valid_path_hmac, poly, pointSize) == 0)
                                 {
                                     snprintf(buf, sizeof(buf), "Match found!\nTag followed path %s", valid_path_labels[j]);

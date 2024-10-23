@@ -36,7 +36,7 @@ MqttClient mqttClient(wifiClient);
 Adafruit_SSD1327 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire1, OLED_RESET); //, 1000000);
 
 // some string buffers for printing
-char buf[256];
+char buf[512];
 int bufLen = 0;
 char screenBuf[512];
 int screenBufLen = 0;

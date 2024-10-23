@@ -122,7 +122,8 @@ void eciesDecrypt(uint8_t * const m, uint16_t &mLen, const uint8_t *c, const uin
         // decrypt using key
         AES256 cipher = AES256();
         cipher.setKey(key, sizeof(key));
-        decryptAES(m, c + 2 * nrBytes, cLen - 2 * nrBytes, cipher);   
+        mLen = cLen - 2 * nrBytes;
+        decryptAES(m, c + 2 * nrBytes, mLen, cipher);   
         unpad(m, mLen);
     }
     else 
@@ -195,12 +196,12 @@ void loop()
                 uint16_t cLen = data[0] << 8 | data[1];
 
                 // if size is to small, assume it has already finished
-                if(cLen <= dataSize && cLen <= 16) 
+                if(cLen <= dataLength && cLen <= 16) 
                 {
                     print("Not enough data, assuming it finished!");
                 }
                 // assume that it is encrypted
-                else if(cLen <= dataSize)
+                else if(cLen <= dataLength && cLen >= sigSize)
                 {
                     // everything except signature is used for ecies
                     uint16_t eciesLen = cLen - sigSize;
@@ -276,7 +277,7 @@ void loop()
                 }
                 else
                 {
-                    print("Specified message size is to large for buffer!");
+                    print("Specified message size is to large for buffer (or tag is not setup properly)!");
                 }
             }
             else 

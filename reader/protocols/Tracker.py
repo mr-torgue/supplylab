@@ -61,7 +61,8 @@ class Tracker:
         P = Point(secp160r1.G_x, secp160r1.G_y, secp160r1) 
 
         # prepare json data
-        data = {"public": {
+        data = {"dir": dir,
+                "public": {
                     "x": pub_key.x, 
                     "y": pub_key.y
                 },
@@ -337,7 +338,7 @@ Polynomial 2: (%d, %d)
             message += point.x.to_bytes(curveSizeBytes, 'big') + point.y.to_bytes(curveSizeBytes, 'big') 
         print("tag content length: %d\ntag content: %s" % (len(message), message.hex()))
         tagObj = Tag(tag, message, "tracker")
-        with open("%d.tag" % (tag), "wb") as f:
+        with open("%s/%d.tag" % (data["dir"], tag), "wb") as f:
             pickle.dump(tagObj, f)
 
 
@@ -422,7 +423,7 @@ Polynomial 2: (%d, %d)
         for new_point in new_points:
             message += new_point.x.to_bytes(curveSizeBytes, 'big') + new_point.y.to_bytes(curveSizeBytes, 'big') 
         tag.updateTagContent(reader, message)
-        with open("%d.tag" % (tag.id), "wb") as f:
+        with open("%s/%d.tag" % (data["dir"], tag.id), "wb") as f:
             pickle.dump(tag, f)
         print("tag content length: %d\ntag content: %s" % (len(message), message.hex()))
 

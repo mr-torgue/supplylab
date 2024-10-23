@@ -39,7 +39,7 @@ echo "Firmware dir: $firmware_dir"
 # start at reader 0
 i=0
 while true; do
-	read -p "Setup next reader? (Y/N): " confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || exit 1
+	read -p "Setup next reader? (Y/N): " confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || break;
 	# list boards
 	boards=$(arduino-cli board list)
 	if [ "$boards" = "No boards found." ]; then
@@ -62,9 +62,25 @@ while true; do
 done
 # upload a manager in the case of tracker
 if [ "$scheme" = tracker ]; then
-	if cp $data_dir/manager_*/scheme_settings.h firmware_dir_2; then
-		echo "Installing Reader $Port with Scheme $scheme and ID $i"
-		arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi $firmware_dir_2
-		arduino-cli upload -p $Port --fqbn arduino:renesas_uno:unor4wifi $firmware_dir_2
+	echo "Firmware dir for verification: $firmware_dir_2"
+	read -p "Install tracker verifier? (Y/N): " confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || exit 1;
+# list boards
+	boards=$(arduino-cli board list)
+	if [ "$boards" = "No boards found." ]; then
+		echo "No RFID readers connected"
+	else
+		{
+			read # skips headers
+			while IFS=" " read -r Port Protocol Type BoardName
+			do
+				echo "Copying $data_dir/manager_*/scheme_settings.h to $firmware_dir_2"
+				if cp $data_dir/manager_*/scheme_settings.h $firmware_dir_2; then
+					echo "Installing Reader $Port with Scheme $scheme and ID $i"
+					arduino-cli compile --build-property  "build.extra_flags=\"-DuECC_ENABLE_VLI_API\"" --fqbn arduino:renesas_uno:unor4wifi $firmware_dir_2
+					arduino-cli upload -p $Port --fqbn arduino:renesas_uno:unor4wifi $firmware_dir_2
+					((i++))
+				fi
+			done
+		} <<< $boards
 	fi
 fi
